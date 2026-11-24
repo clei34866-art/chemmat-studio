@@ -123,6 +123,8 @@ export interface ManualAngleResult {
   theta_mean_deg: number;
   contact_left: [number, number];
   contact_right: [number, number];
+  circle_center?: [number, number];
+  circle_radius?: number;
   image_width: number;
   image_height: number;
   annotated_image_base64: string;
@@ -130,7 +132,9 @@ export interface ManualAngleResult {
 
 export async function measureManualContactAngle(
   file: File,
-  lines: { baseline: number[]; tangent_left: number[]; tangent_right: number[] }
+  lines:
+    | { baseline: number[]; tangent_left: number[]; tangent_right: number[] }
+    | { baseline: number[]; arc_points: number[] }
 ): Promise<ManualAngleResult> {
   const fd = new FormData();
   fd.append("file", file);

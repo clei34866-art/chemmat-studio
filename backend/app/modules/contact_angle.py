@@ -749,3 +749,193 @@ def manual_contact_angle(
         "image_height": h,
         "annotated_image_base64": annotated_b64,
     }
+
+
+def _circle_through_three(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    p3: tuple[float, float],
+) -> tuple[float, float, float]:
+    """Circumcircle (cx, cy, R) of three points; raises if (near-)collinear."""
+    ax, ay = p1
+    bx, by = p2
+    cx_, cy_ = p3
+    d = 2.0 * (ax * (by - cy_) + bx * (cy_ - ay) + cx_ * (ay - by))
+    if abs(d) < 1e-6:
+        raise ValueError("Arc points are nearly collinear; spread them along the droplet profile.")
+    ux = (
+        (ax**2 + ay**2) * (by - cy_)
+        + (bx**2 + by**2) * (cy_ - ay)
+        + (cx_**2 + cy_**2) * (ay - by)
+    ) / d
+    uy = (
+        (ax**2 + ay**2) * (cx_ - bx)
+        + (bx**2 + by**2) * (ax - cx_)
+        + (cx_**2 + cy_**2) * (bx - ax)
+    ) / d
+    r = float(np.hypot(ax - ux, ay - uy))
+    return float(ux), float(uy), r
+
+
+def manual_contact_angle_arc(
+    image_bytes: bytes,
+    *,
+    baseline: list[float],
+    arc_points: list[float],
+) -> dict[str, Any]:
+    """Manual arc mode: user places three points on the droplet profile; the
+    circle through them wraps the droplet, and the contact angles come from
+    the circle's tangents where it meets the user-placed baseline.
+
+    baseline is [x1, y1, x2, y2]; arc_points is [x1, y1, x2, y2, x3, y3],
+    all in original image pixel coordinates.
+    """
+    if len(baseline) != 4:
+        raise ValueError("baseline must be [x1, y1, x2, y2].")
+    if len(arc_points) != 6:
+        raise ValueError("arc_points must be [x1, y1, x2, y2, x3, y3].")
+
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None:
+        raise ValueError("Could not decode image.")
+    h, w = bgr.shape[:2]
+
+    base_a = (float(baseline[0]), float(baseline[1]))
+    base_b = (float(baseline[2]), float(baseline[3]))
+    pts = [
+        (float(arc_points[0]), float(arc_points[1])),
+        (float(arc_points[2]), float(arc_points[3])),
+        (float(arc_points[4]), float(arc_points[5])),
+    ]
+    cx, cy, radius = _circle_through_three(*pts)
+
+    # Intersect circle with the baseline line (param: base_a + t * dir)
+    dx = base_b[0] - base_a[0]
+    dy = base_b[1] - base_a[1]
+    len2 = dx * dx + dy * dy
+    if len2 < 1e-9:
+        raise ValueError("Baseline points coincide.")
+    fx = base_a[0] - cx
+    fy = base_a[1] - cy
+    bq = 2.0 * (fx * dx + fy * dy)
+    cq = fx * fx + fy * fy - radius * radius
+    disc = bq * bq - 4.0 * len2 * cq
+    if disc < 0:
+        raise ValueError("The arc does not reach the baseline; enlarge the arc or move the baseline.")
+    sq = float(np.sqrt(max(disc, 0.0)))
+    t1 = (-bq - sq) / (2.0 * len2)
+    t2 = (-bq + sq) / (2.0 * len2)
+    c1 = (base_a[0] + t1 * dx, base_a[1] + t1 * dy)
+    c2 = (base_a[0] + t2 * dx, base_a[1] + t2 * dy)
+    contact_l, contact_r = (c1, c2) if c1[0] <= c2[0] else (c2, c1)
+
+    def _angle_at(contact: tuple[float, float], is_left: bool) -> float:
+        # Tangent direction: perpendicular to the radius, oriented upward.
+        rx = (contact[0] - cx) / radius
+        ry = (contact[1] - cy) / radius
+        tx, ty = -ry, rx
+        if ty > 0:
+            tx, ty = -tx, -ty
+        # Reuse the line-mode machinery with a synthetic tangent segment.
+        tan_a = contact
+        tan_b = (contact[0] + 50.0 * tx, contact[1] + 50.0 * ty)
+        theta, _ = _manual_side_angle(base_a, base_b, tan_a, tan_b, is_left)
+        return theta
+
+    theta_l = _angle_at(contact_l, True)
+    theta_r = _angle_at(contact_r, False)
+    theta_mean = 0.5 * (theta_l + theta_r)
+
+    # --- Annotated rendering (same palette; green arc wraps the droplet) ---
+    vis = bgr.copy()
+    # Arc: polyline of circle points above the baseline line
+    arc_pts: list[list[int]] = []
+    for deg in range(0, 3601):
+        a = np.radians(deg / 10.0)
+        x = cx + radius * np.cos(a)
+        y = cy + radius * np.sin(a)
+        # keep the part above the baseline (signed side test)
+        side = (x - base_a[0]) * dy - (y - base_a[1]) * dx
+        base_side = (cx - base_a[0]) * dy - ((cy - radius) - base_a[1]) * dx
+        if side * base_side >= 0 and -50 <= x < w + 50 and -50 <= y < h + 50:
+            arc_pts.append([int(round(x)), int(round(y))])
+    if len(arc_pts) > 2:
+        cv2.polylines(
+            vis,
+            [np.array(arc_pts, dtype=np.int32).reshape((-1, 1, 2))],
+            False,
+            (30, 175, 60),
+            2,
+            cv2.LINE_AA,
+        )
+    # Baseline (blue) across full width along its slope
+    if abs(base_b[0] - base_a[0]) > 1e-6:
+        slope = (base_b[1] - base_a[1]) / (base_b[0] - base_a[0])
+        y_at = lambda x: base_a[1] + slope * (x - base_a[0])
+        cv2.line(vis, (0, int(round(y_at(0.0)))), (w - 1, int(round(y_at(float(w - 1))))), (220, 90, 20), 2, cv2.LINE_AA)
+    else:
+        cv2.line(vis, (int(base_a[0]), 0), (int(base_a[0]), h - 1), (220, 90, 20), 2, cv2.LINE_AA)
+    # Tangent rays at contacts (red) + contact dots (yellow)
+    ray_len = 85.0
+    for contact, theta, is_left in (
+        (contact_l, theta_l, True),
+        (contact_r, theta_r, False),
+    ):
+        ang = np.radians(theta)
+        ddx = ray_len * np.cos(ang) * (1.0 if is_left else -1.0)
+        ddy = -ray_len * np.sin(ang)
+        # rotate ray into baseline frame when baseline is tilted
+        base_ang = np.arctan2(dy, dx)
+        ca, sa = np.cos(base_ang), np.sin(base_ang)
+        rdx = ddx * ca - ddy * sa
+        rdy = ddx * sa + ddy * ca
+        cv2.line(
+            vis,
+            (int(round(contact[0])), int(round(contact[1]))),
+            (int(round(contact[0] + rdx)), int(round(contact[1] + rdy))),
+            (30, 30, 230),
+            2,
+            cv2.LINE_AA,
+        )
+        cv2.circle(vis, (int(round(contact[0])), int(round(contact[1]))), 6, (0, 200, 255), -1, cv2.LINE_AA)
+    # User arc points (white-ringed dots)
+    for p in pts:
+        cv2.circle(vis, (int(round(p[0])), int(round(p[1]))), 5, (240, 240, 240), -1, cv2.LINE_AA)
+    # Readout box
+    lines_txt = [
+        f"Theta_L: {theta_l:.2f} deg (manual arc)",
+        f"Theta_R: {theta_r:.2f} deg (manual arc)",
+        f"Mean:    {theta_mean:.2f} deg",
+    ]
+    cv2.rectangle(vis, (14, 14), (352, 92), (255, 255, 255), -1)
+    cv2.rectangle(vis, (14, 14), (352, 92), (180, 190, 205), 1)
+    for i, t in enumerate(lines_txt):
+        cv2.putText(
+            vis,
+            t,
+            (24, 36 + 23 * i),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (15, 23, 42) if i < 2 else (29, 78, 216),
+            1 if i < 2 else 2,
+            cv2.LINE_AA,
+        )
+
+    rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+    buf = io.BytesIO()
+    Image.fromarray(rgb).save(buf, format="PNG")
+    annotated_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    return {
+        "theta_left_deg": round(theta_l, 3),
+        "theta_right_deg": round(theta_r, 3),
+        "theta_mean_deg": round(theta_mean, 3),
+        "contact_left": [round(contact_l[0], 2), round(contact_l[1], 2)],
+        "contact_right": [round(contact_r[0], 2), round(contact_r[1], 2)],
+        "circle_center": [round(cx, 2), round(cy, 2)],
+        "circle_radius": round(radius, 2),
+        "image_width": w,
+        "image_height": h,
+        "annotated_image_base64": annotated_b64,
+    }

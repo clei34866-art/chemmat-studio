@@ -2,29 +2,97 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import { measureManualContactAngle, type ManualAngleResult } from "../api";
 
 type Pt = { x: number; y: number };
-type Lines = { base: [Pt, Pt]; tanL: [Pt, Pt]; tanR: [Pt, Pt] };
-type HandleId = "base0" | "base1" | "tanL0" | "tanL1" | "tanR0" | "tanR1";
+type Mode = "arc" | "tangent";
 
-const HANDLE_OF: Record<HandleId, { line: keyof Lines; idx: 0 | 1 }> = {
-  base0: { line: "base", idx: 0 },
-  base1: { line: "base", idx: 1 },
-  tanL0: { line: "tanL", idx: 0 },
-  tanL1: { line: "tanL", idx: 1 },
-  tanR0: { line: "tanR", idx: 0 },
-  tanR1: { line: "tanR", idx: 1 },
-};
+/* ---------------- geometry helpers (mirror of backend math) ---------------- */
 
-function lineIntersection(a: Pt, b: Pt, c: Pt, d: Pt): Pt | null {
-  const den = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
-  if (Math.abs(den) < 1e-9) return null;
-  const px =
-    ((a.x * b.y - a.y * b.x) * (c.x - d.x) - (a.x - b.x) * (c.x * d.y - c.y * d.x)) / den;
-  const py =
-    ((a.x * b.y - a.y * b.x) * (c.y - d.y) - (a.y - b.y) * (c.x * d.y - c.y * d.x)) / den;
-  return { x: px, y: py };
+function circumcircle(
+  p1: Pt,
+  p2: Pt,
+  p3: Pt
+): { cx: number; cy: number; r: number } | null {
+  const d =
+    2 *
+    (p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y));
+  if (Math.abs(d) < 1e-6) return null;
+  const ux =
+    ((p1.x ** 2 + p1.y ** 2) * (p2.y - p3.y) +
+      (p2.x ** 2 + p2.y ** 2) * (p3.y - p1.y) +
+      (p3.x ** 2 + p3.y ** 2) * (p1.y - p2.y)) /
+    d;
+  const uy =
+    ((p1.x ** 2 + p1.y ** 2) * (p3.x - p2.x) +
+      (p2.x ** 2 + p2.y ** 2) * (p1.x - p3.x) +
+      (p3.x ** 2 + p3.y ** 2) * (p2.x - p1.x)) /
+    d;
+  return { cx: ux, cy: uy, r: Math.hypot(p1.x - ux, p1.y - uy) };
 }
 
-/** Interior angle (deg) between baseline and one tangent, through the liquid. */
+function angleBetween(ax: number, ay: number, bx: number, by: number): number {
+  const dot = Math.max(-1, Math.min(1, ax * bx + ay * by));
+  return (Math.acos(dot) * 180) / Math.PI;
+}
+
+/** Contact angles for the 3-point arc flow: contacts L/R fixed, arc pulled
+ *  through the third point. Baseline is the L->R line itself. */
+function arcAngles(
+  l: Pt,
+  r: Pt,
+  pull: Pt
+): { l: number; r: number; mean: number } | null {
+  const circ = circumcircle(l, r, pull);
+  if (!circ) return null;
+  let bx = r.x - l.x;
+  let by = r.y - l.y;
+  const bn = Math.hypot(bx, by);
+  if (bn < 1e-9) return null;
+  bx /= bn;
+  by /= bn;
+
+  const tangentAt = (c: Pt): Pt => {
+    // radius direction -> tangent direction, oriented toward the pull point
+    const rx = (c.x - circ.cx) / circ.r;
+    const ry = (c.y - circ.cy) / circ.r;
+    let tx = -ry;
+    let ty = rx;
+    if (tx * (pull.x - c.x) + ty * (pull.y - c.y) < 0) {
+      tx = -tx;
+      ty = -ty;
+    }
+    return { x: tx, y: ty };
+  };
+
+  const tl = tangentAt(l);
+  const tr = tangentAt(r);
+  const thetaL = angleBetween(bx, by, tl.x, tl.y);
+  const thetaR = angleBetween(-bx, -by, tr.x, tr.y);
+  return { l: thetaL, r: thetaR, mean: (thetaL + thetaR) / 2 };
+}
+
+/** Polyline of the arc from L to R passing through the pull side. */
+function arcPolyline(l: Pt, r: Pt, pull: Pt): Pt[] {
+  const circ = circumcircle(l, r, pull);
+  if (!circ) return [];
+  const aL = Math.atan2(l.y - circ.cy, l.x - circ.cx);
+  const aR = Math.atan2(r.y - circ.cy, r.x - circ.cx);
+  const aP = Math.atan2(pull.y - circ.cy, pull.x - circ.cx);
+  const TAU = Math.PI * 2;
+  const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+  // walk counter-clockwise from aL; decide direction by whether aP lies on it
+  const ccwSpan = norm(aR - aL);
+  const ccwPull = norm(aP - aL);
+  const dir = ccwPull <= ccwSpan ? 1 : -1;
+  const span = dir === 1 ? ccwSpan : TAU - ccwSpan;
+  const pts: Pt[] = [];
+  const steps = 72;
+  for (let i = 0; i <= steps; i++) {
+    const a = aL + dir * span * (i / steps);
+    pts.push({ x: circ.cx + circ.r * Math.cos(a), y: circ.cy + circ.r * Math.sin(a) });
+  }
+  return pts;
+}
+
+/** Interior angle for one tangent line in tangent mode. */
 function sideAngle(base: [Pt, Pt], tan: [Pt, Pt], isLeft: boolean): number | null {
   let bx = base[1].x - base[0].x;
   let by = base[1].y - base[0].y;
@@ -48,8 +116,7 @@ function sideAngle(base: [Pt, Pt], tan: [Pt, Pt], isLeft: boolean): number | nul
   }
   const ix = isLeft ? bx : -bx;
   const iy = isLeft ? by : -by;
-  const dot = Math.max(-1, Math.min(1, ix * tx + iy * ty));
-  return (Math.acos(dot) * 180) / Math.PI;
+  return angleBetween(ix, iy, tx, ty);
 }
 
 function extend(p: Pt, q: Pt, frac: number): [Pt, Pt] {
@@ -61,11 +128,19 @@ function extend(p: Pt, q: Pt, frac: number): [Pt, Pt] {
   ];
 }
 
+/* ---------------- component ---------------- */
+
+type HandleId = "arcL" | "arcR" | "arcPull" | "base0" | "base1" | "tanL0" | "tanL1" | "tanR0" | "tanR1";
+
 export function ManualContactAngle() {
+  const [mode, setMode] = useState<Mode>("arc");
   const [file, setFile] = useState<File | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
-  const [lines, setLines] = useState<Lines | null>(null);
+  const [arc, setArc] = useState<{ l: Pt; r: Pt; pull: Pt } | null>(null);
+  const [base, setBase] = useState<[Pt, Pt] | null>(null);
+  const [tanL, setTanL] = useState<[Pt, Pt] | null>(null);
+  const [tanR, setTanR] = useState<[Pt, Pt] | null>(null);
   const [result, setResult] = useState<ManualAngleResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +153,11 @@ export function ManualContactAngle() {
     setFile(f);
     setResult(null);
     setError(null);
-    setLines(null);
     setNat(null);
+    setArc(null);
+    setBase(null);
+    setTanL(null);
+    setTanR(null);
     setImgUrl(URL.createObjectURL(f));
   };
 
@@ -89,20 +167,23 @@ export function ManualContactAngle() {
     const h = img.naturalHeight;
     setNat({ w, h });
     const yb = 0.62 * h;
-    setLines({
-      base: [
-        { x: 0.06 * w, y: yb },
-        { x: 0.94 * w, y: yb },
-      ],
-      tanL: [
-        { x: 0.3 * w, y: yb },
-        { x: 0.37 * w, y: 0.36 * h },
-      ],
-      tanR: [
-        { x: 0.7 * w, y: yb },
-        { x: 0.63 * w, y: 0.36 * h },
-      ],
+    setArc({
+      l: { x: 0.4 * w, y: yb },
+      r: { x: 0.6 * w, y: yb },
+      pull: { x: 0.5 * w, y: 0.36 * h },
     });
+    setBase([
+      { x: 0.06 * w, y: yb },
+      { x: 0.94 * w, y: yb },
+    ]);
+    setTanL([
+      { x: 0.3 * w, y: yb },
+      { x: 0.37 * w, y: 0.36 * h },
+    ]);
+    setTanR([
+      { x: 0.7 * w, y: yb },
+      { x: 0.63 * w, y: 0.36 * h },
+    ]);
   };
 
   const toImageCoords = useCallback(
@@ -111,8 +192,8 @@ export function ManualContactAngle() {
       if (!svg || !nat) return null;
       const rect = svg.getBoundingClientRect();
       return {
-        x: ((clientX - rect.left) / rect.width) * nat.w,
-        y: ((clientY - rect.top) / rect.height) * nat.h,
+        x: Math.max(0, Math.min(nat.w, ((clientX - rect.left) / rect.width) * nat.w)),
+        y: Math.max(0, Math.min(nat.h, ((clientY - rect.top) / rect.height) * nat.h)),
       };
     },
     [nat]
@@ -126,53 +207,58 @@ export function ManualContactAngle() {
 
   const onPointerMove = (e: React.PointerEvent) => {
     const id = dragRef.current;
-    if (!id || !lines || !nat) return;
+    if (!id) return;
     const p = toImageCoords(e.clientX, e.clientY);
     if (!p) return;
-    const clamped = {
-      x: Math.max(0, Math.min(nat.w, p.x)),
-      y: Math.max(0, Math.min(nat.h, p.y)),
-    };
-    const { line, idx } = HANDLE_OF[id];
-    setLines((prev) => {
-      if (!prev) return prev;
-      const next: Lines = { ...prev, [line]: [...prev[line]] as [Pt, Pt] };
-      next[line][idx] = clamped;
-      return next;
-    });
+    if (id === "arcL") setArc((s) => (s ? { ...s, l: p } : s));
+    else if (id === "arcR") setArc((s) => (s ? { ...s, r: p } : s));
+    else if (id === "arcPull") setArc((s) => (s ? { ...s, pull: p } : s));
+    else if (id === "base0") setBase((s) => (s ? [p, s[1]] : s));
+    else if (id === "base1") setBase((s) => (s ? [s[0], p] : s));
+    else if (id === "tanL0") setTanL((s) => (s ? [p, s[1]] : s));
+    else if (id === "tanL1") setTanL((s) => (s ? [s[0], p] : s));
+    else if (id === "tanR0") setTanR((s) => (s ? [p, s[1]] : s));
+    else if (id === "tanR1") setTanR((s) => (s ? [s[0], p] : s));
     setResult(null);
   };
 
-  const onPointerUp = () => {
-    dragRef.current = null;
-  };
-
   const angles = useMemo(() => {
-    if (!lines) return null;
-    const l = sideAngle(lines.base, lines.tanL, true);
-    const r = sideAngle(lines.base, lines.tanR, false);
+    if (mode === "arc") {
+      if (!arc) return null;
+      return arcAngles(arc.l, arc.r, arc.pull);
+    }
+    if (!base || !tanL || !tanR) return null;
+    const l = sideAngle(base, tanL, true);
+    const r = sideAngle(base, tanR, false);
     if (l === null || r === null) return null;
     return { l, r, mean: (l + r) / 2 };
-  }, [lines]);
+  }, [mode, arc, base, tanL, tanR]);
 
-  const contacts = useMemo(() => {
-    if (!lines) return null;
-    return {
-      l: lineIntersection(lines.base[0], lines.base[1], lines.tanL[0], lines.tanL[1]),
-      r: lineIntersection(lines.base[0], lines.base[1], lines.tanR[0], lines.tanR[1]),
-    };
-  }, [lines]);
+  const arcPts = useMemo(() => {
+    if (mode !== "arc" || !arc) return [];
+    return arcPolyline(arc.l, arc.r, arc.pull);
+  }, [mode, arc]);
 
   const runAnnotate = async () => {
-    if (!file || !lines) return;
+    if (!file) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await measureManualContactAngle(file, {
-        baseline: [lines.base[0].x, lines.base[0].y, lines.base[1].x, lines.base[1].y],
-        tangent_left: [lines.tanL[0].x, lines.tanL[0].y, lines.tanL[1].x, lines.tanL[1].y],
-        tangent_right: [lines.tanR[0].x, lines.tanR[0].y, lines.tanR[1].x, lines.tanR[1].y],
-      });
+      let res: ManualAngleResult;
+      if (mode === "arc") {
+        if (!arc) return;
+        res = await measureManualContactAngle(file, {
+          baseline: [arc.l.x, arc.l.y, arc.r.x, arc.r.y],
+          arc_points: [arc.l.x, arc.l.y, arc.r.x, arc.r.y, arc.pull.x, arc.pull.y],
+        });
+      } else {
+        if (!base || !tanL || !tanR) return;
+        res = await measureManualContactAngle(file, {
+          baseline: [base[0].x, base[0].y, base[1].x, base[1].y],
+          tangent_left: [tanL[0].x, tanL[0].y, tanL[1].x, tanL[1].y],
+          tangent_right: [tanR[0].x, tanR[0].y, tanR[1].x, tanR[1].y],
+        });
+      }
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -184,29 +270,61 @@ export function ManualContactAngle() {
   const handleR = nat ? Math.max(6, Math.max(nat.w, nat.h) * 0.011) : 8;
   const strokeW = nat ? Math.max(1.6, nat.w * 0.0022) : 2;
 
-  const renderHandle = (id: HandleId, p: Pt, color: string) => (
-    <circle
-      key={id}
-      cx={p.x}
-      cy={p.y}
-      r={handleR}
-      fill={color}
-      fillOpacity={0.9}
-      stroke="#ffffff"
-      strokeWidth={strokeW * 0.8}
-      style={{ cursor: "grab", touchAction: "none" }}
-      onPointerDown={onPointerDown(id)}
-    />
+  const handle = (id: HandleId, p: Pt, color: string, label?: string) => (
+    <g key={id}>
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={handleR}
+        fill={color}
+        fillOpacity={0.92}
+        stroke="#ffffff"
+        strokeWidth={strokeW * 0.8}
+        style={{ cursor: "grab", touchAction: "none" }}
+        onPointerDown={onPointerDown(id)}
+      />
+      {label && (
+        <text
+          x={p.x}
+          y={p.y - handleR * 1.5}
+          textAnchor="middle"
+          fontSize={handleR * 1.35}
+          fill={color}
+          fontWeight={700}
+          style={{ pointerEvents: "none" }}
+        >
+          {label}
+        </text>
+      )}
+    </g>
   );
+
+  const ready = imgUrl && nat && arc && base && tanL && tanR;
 
   return (
     <section className="mt-3.5 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-sm font-bold text-[#0F172A]">手动测角（真实照片）</h3>
         <span className="text-xs text-[#64748B]">
-          自动识别对带反光、倒影的照片容易测错；这里自己拖线，工具只算角度。
+          自动识别对带反光、倒影的照片容易测错；这里自己定点拉弧，工具只算角度。
         </span>
         <span className="flex-1" />
+        <div className="flex overflow-hidden rounded-lg border border-[#CBD5E1] text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setMode("arc")}
+            className={mode === "arc" ? "bg-[#0F766E] px-3 py-1.5 text-white" : "px-3 py-1.5 text-[#334155] hover:bg-[#F1F5F9]"}
+          >
+            三点拉弧
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("tangent")}
+            className={mode === "tangent" ? "bg-[#0F766E] px-3 py-1.5 text-white" : "px-3 py-1.5 text-[#334155] hover:bg-[#F1F5F9]"}
+          >
+            切线直拖
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -223,14 +341,19 @@ export function ManualContactAngle() {
         />
       </div>
 
-      {imgUrl && (
+      {imgUrl && mode === "arc" && (
         <p className="mt-2 text-xs leading-5 text-[#64748B]">
-          拖法：蓝色基线的两个点拉到样品表面两端（表面倾斜就跟着倾斜）；红色切线每条两个点，
-          下点压在接触点上、上点贴住液滴边缘靠近接触处的一小段。角度随拖动实时更新。
+          步骤：① 把<strong>左点</strong>拖到液滴左接触点；② 把<strong>右点</strong>拖到右接触点（两点连线就是基线，表面斜就跟着斜）；
+          ③ 拖<strong>绿点</strong>拉弧度，让弧线贴住液滴轮廓。角度随拖动实时更新。
+        </p>
+      )}
+      {imgUrl && mode === "tangent" && (
+        <p className="mt-2 text-xs leading-5 text-[#64748B]">
+          拖法：蓝色基线两点拉到样品表面两端；红色切线每条两个点，下点压接触点、上点贴住液滴边缘靠近接触处的一小段。
         </p>
       )}
 
-      {imgUrl && nat && lines && (
+      {ready && (
         <div className="relative mt-3 select-none overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#0B0F14]">
           <img src={imgUrl} alt="液滴照片" className="block w-full" draggable={false} />
           <svg
@@ -238,41 +361,58 @@ export function ManualContactAngle() {
             viewBox={`0 0 ${nat.w} ${nat.h}`}
             className="absolute inset-0 h-full w-full"
             onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
+            onPointerUp={() => {
+              dragRef.current = null;
+            }}
           >
-            {/* baseline extended to full width */}
-            {(() => {
-              const [a, b] = lines.base;
-              if (Math.abs(b.x - a.x) > 1e-6) {
-                const slope = (b.y - a.y) / (b.x - a.x);
-                const y0 = a.y + slope * (0 - a.x);
-                const y1 = a.y + slope * (nat.w - a.x);
-                return (
-                  <line x1={0} y1={y0} x2={nat.w} y2={y1} stroke="#3B82F6" strokeWidth={strokeW} />
-                );
-              }
-              return <line x1={a.x} y1={0} x2={a.x} y2={nat.h} stroke="#3B82F6" strokeWidth={strokeW} />;
-            })()}
-            {(() => {
-              const [a, b] = extend(lines.tanL[0], lines.tanL[1], 0.35);
-              return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#EF4444" strokeWidth={strokeW} />;
-            })()}
-            {(() => {
-              const [a, b] = extend(lines.tanR[0], lines.tanR[1], 0.35);
-              return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#EF4444" strokeWidth={strokeW} />;
-            })()}
-            {contacts?.l && (
-              <circle cx={contacts.l.x} cy={contacts.l.y} r={handleR * 0.55} fill="#FACC15" />
+            {mode === "arc" && arc && (
+              <>
+                {/* baseline = L->R line, extended a little */}
+                {(() => {
+                  const [a, b] = extend(arc.l, arc.r, 0.18);
+                  return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#3B82F6" strokeWidth={strokeW} />;
+                })()}
+                {arcPts.length > 2 && (
+                  <polyline
+                    points={arcPts.map((p) => `${p.x},${p.y}`).join(" ")}
+                    fill="none"
+                    stroke="#22C55E"
+                    strokeWidth={strokeW * 1.2}
+                  />
+                )}
+                {handle("arcL", arc.l, "#F59E0B", "左")}
+                {handle("arcR", arc.r, "#F59E0B", "右")}
+                {handle("arcPull", arc.pull, "#22C55E", "拉弧")}
+              </>
             )}
-            {contacts?.r && (
-              <circle cx={contacts.r.x} cy={contacts.r.y} r={handleR * 0.55} fill="#FACC15" />
+            {mode === "tangent" && base && tanL && tanR && (
+              <>
+                {(() => {
+                  const [a, b] = base;
+                  if (Math.abs(b.x - a.x) > 1e-6) {
+                    const slope = (b.y - a.y) / (b.x - a.x);
+                    const y0 = a.y + slope * (0 - a.x);
+                    const y1 = a.y + slope * (nat.w - a.x);
+                    return <line x1={0} y1={y0} x2={nat.w} y2={y1} stroke="#3B82F6" strokeWidth={strokeW} />;
+                  }
+                  return <line x1={a.x} y1={0} x2={a.x} y2={nat.h} stroke="#3B82F6" strokeWidth={strokeW} />;
+                })()}
+                {(() => {
+                  const [a, b] = extend(tanL[0], tanL[1], 0.35);
+                  return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#EF4444" strokeWidth={strokeW} />;
+                })()}
+                {(() => {
+                  const [a, b] = extend(tanR[0], tanR[1], 0.35);
+                  return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#EF4444" strokeWidth={strokeW} />;
+                })()}
+                {handle("base0", base[0], "#3B82F6")}
+                {handle("base1", base[1], "#3B82F6")}
+                {handle("tanL0", tanL[0], "#EF4444")}
+                {handle("tanL1", tanL[1], "#EF4444")}
+                {handle("tanR0", tanR[0], "#EF4444")}
+                {handle("tanR1", tanR[1], "#EF4444")}
+              </>
             )}
-            {renderHandle("base0", lines.base[0], "#3B82F6")}
-            {renderHandle("base1", lines.base[1], "#3B82F6")}
-            {renderHandle("tanL0", lines.tanL[0], "#EF4444")}
-            {renderHandle("tanL1", lines.tanL[1], "#EF4444")}
-            {renderHandle("tanR0", lines.tanR[0], "#EF4444")}
-            {renderHandle("tanR1", lines.tanR[1], "#EF4444")}
           </svg>
         </div>
       )}

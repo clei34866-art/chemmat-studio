@@ -10,7 +10,11 @@ from pydantic import BaseModel
 
 from app.core.detector import detect_file_type
 from app.core.exporter import export_processed_data, render_publication_figure
-from app.modules.contact_angle import manual_contact_angle, process_contact_angle
+from app.modules.contact_angle import (
+    manual_contact_angle,
+    manual_contact_angle_arc,
+    process_contact_angle,
+)
 from app.modules.electrochem import process_electrochem
 from app.modules.spectroscopy import process_spectroscopy
 from app.modules.xps import process_xps
@@ -187,6 +191,12 @@ async def manual_contact_angle_endpoint(
     try:
         lines = json.loads(lines_json)
         content = await file.read()
+        if "arc_points" in lines:
+            return manual_contact_angle_arc(
+                content,
+                baseline=lines["baseline"],
+                arc_points=lines["arc_points"],
+            )
         return manual_contact_angle(
             content,
             baseline=lines["baseline"],
