@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/plotly.d.ts","./src/types.ts","./src/components/empiricalbadge.tsx","./src/components/journaltoolbar.tsx","./src/components/parameterinspector.tsx","./src/components/plotworkspace.tsx","./src/components/plotlychart.tsx"],"version":"5.9.3"}
