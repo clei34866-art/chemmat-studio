@@ -1,80 +1,95 @@
-# ChemMat Studio Design System Specification
+# Design System: ChemMat Studio（一站式化材实验数据处理工作台）
 
-> **Design Aesthetic:** Clean Scientific Workbench（简明科技风）  
-> **Domain:** Materials Science & Chemistry Experimental Data Processing  
-> **Target Surface:** Desktop Laboratory & Research Workbench (`>= 1280px` optimal)
-
----
-
-## 1. Visual Atmosphere & Design Philosophy
-
-- **Density:** `6/10` ("Daily App Balanced" moving toward "Analytical Cockpit") — high information utility without visual clutter. Data plots, residual plots, parameter errors (`± 1σ SE`), and raw controls share clear, calm spatial zones.
-- **Variance:** Strict structured 3-column workbench grid (`Left Rail` + `Main Canvas` + `Right Parameter Inspector`) anchored by a `56px` global top bar.
-- **Motion:** Restrained & functional (`120ms–180ms` ease-out transitions on toggles, tabs, and parameter updates). Zero decorative bouncing, zero parallax, zero AI neon glows.
-- **Zero Black-Box Transparency:** Every numerical default is accompanied by a visible **`经验默认值 · 可编辑`** micro-badge so researchers never mistake empirical defaults for physical constants.
+> **Synthesized with Google Stitch Skills:** `taste-design`, `design-md`, `extract-design-md`  
+> **Visual Direction:** Clean Scientific Workbench（简明科技风 — 专业、干净、高信息可读性、零营销装饰）  
+> **Target Viewport:** Desktop Laboratory Workstation (`>= 1280px`)
 
 ---
 
-## 2. Color Calibration
+## 1. Visual Theme & Atmosphere
 
-| Token | Hex | Functional Role |
+ChemMat Studio is engineered as a **Focused Analytical Cockpit (密度 6/10，结构对称度 2/10，功能性克制动效 2/10)** for materials scientists and chemists. The interface rejects marketing flourishes, dark cyberpunk neon, and decorative gradients in favor of crisp laboratory clarity:
+
+- **Paper-First Contrast:** Plots and residuals sit on pure laboratory white (`#FFFFFF`), separated cleanly from a cool mineral workspace canvas (`#F8FAFC`) by razor-thin `1px` architectural hairlines (`#E2E8F0`).
+- **Radical Transparency:** Every default numerical assumption (such as XPS C 1s `284.8 eV`, Scherrer `K = 0.89`, `λ = 1.5406 Å`, RSF `1.00`) carries an explicit warm-amber pill badge so scientists never confuse empirical defaults with immutable physical constants.
+- **Residual-Paired Truth:** Fitted plots never stand alone; every fit renders directly above a synchronized zero-referenced residual plot (`残差图`) and a tabular monospace uncertainty table (`± 1σ SE`).
+
+---
+
+## 2. Color Palette & Functional Roles
+
+| Descriptive Name | Hex Code | Functional Role |
 |---|---|---|
-| `--bg-canvas` | `#F8FAFC` | Main laboratory workspace background (cool mineral off-white) |
-| `--bg-surface` | `#FFFFFF` | Plot paper, primary analytical cards, data tables |
-| `--bg-subtle` | `#F1F5F9` | Secondary panels, inspector sections, table headers |
-| `--ink-primary` | `#0F172A` | Primary headings, labels, axis UI ink (never raw `#000000` in web chrome) |
-| `--ink-secondary` | `#475569` | Subtitles, equations, secondary metadata |
-| `--ink-muted` | `#64748B` | Units, provenance timestamps, helper hints |
-| `--border-hairline` | `#E2E8F0` | 1px structural dividers and panel frames |
-| `--accent-primary` | `#1D4ED8` | Single primary accent: active tab, primary run/export CTA, active series highlight |
-| `--accent-hover` | `#1E40AF` | Hover/pressed state for primary actions |
-| `--accent-tint` | `#EFF6FF` | Active navigation pill background & drop-zone highlight |
-| `--empirical-bg` | `#FEF3C7` | Background for `经验默认值 · 可编辑` badges |
-| `--empirical-ink` | `#92400E` | Text & border (`#FDE68A`) for `经验默认值 · 可编辑` badges |
-| `--success-ink` | `#047857` | Passed ground-truth checks & good $R^2$ (`#ECFDF5` tint) |
-| `--danger-ink` | `#B91C1C` | Validation errors & deletion actions (`#FEF2F2` tint) |
+| **Cool Mineral Canvas** | `#F8FAFC` | Primary workbench background behind panels and empty drop zones |
+| **Laboratory Paper White** | `#FFFFFF` | Plot canvas, analytical cards, export figure background (`PNG/SVG/PDF`), side rails |
+| **Frosted Slate Subtle** | `#F1F5F9` | Table headers, secondary card fills, subtle plot gridlines |
+| **Deep Charcoal Ink** | `#0F172A` | Primary headings, data labels, UI axis text (pure `#000000` reserved strictly for print-ready Matplotlib spines/ticks) |
+| **Muted Graphite** | `#475569` | Secondary metadata, formula strings, inactive navigation icons |
+| **Technical Pewter** | `#64748B` | Units, provenance timestamps, raw unhighlighted traces |
+| **Architectural Hairline** | `#E2E8F0` | `1px` crisp structural borders dividing the 3-column workbench and tabs |
+| **Cobalt Analytical Blue** *(Single Primary Accent)* | `#1D4ED8` | Primary CTAs ("应用参数并重新计算", "Excel 数据+日志"), active module indicator, active journal tab |
+| **Cobalt Deep Press** | `#1E40AF` | Hover and active press state for primary buttons |
+| **Ice Blue Selection Tint** | `#EFF6FF` | Active module pill fill, drag-over highlight, synthetic load button surface |
+| **Amber Empirical Fill** | `#FEF3C7` | Fill for `经验默认值 · 可编辑` micro-badges and empirical parameter groups (`#FFFBEB` container) |
+| **Amber Empirical Ink / Border** | `#92400E` / `#FDE68A` | Text and `1px` border signaling editable empirical defaults |
+| **Emerald Verification Pass** | `#047857` / `#ECFDF5` | Synthetic ground-truth PASS status badges |
+| **Crimson Validation Alert** | `#B91C1C` / `#FEF2F2` | Error banners and destructive delete icons |
 
-**Banned Patterns:** Purple/indigo/neon gradients, dark cyberpunk shells, glowing drop-shadows, decorative glassmorphism.
-
----
-
-## 3. Typographic Architecture
-
-- **UI Display & Body Sans:** `'Outfit', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif`
-  - Workbench Title: `15px`, Weight `600`, tight tracking `-0.01em`
-  - Panel Section Headers: `12px`, Weight `600`, uppercase tracking `0.04em`, color `--ink-secondary`
-  - Body / Form Labels: `13px`, Weight `500`, color `--ink-primary`
-- **Data, Equations, Uncertainties & Tables (Mandatory Monospace):** `'JetBrains Mono', 'Cascadia Code', Consolas, monospace` with `font-variant-numeric: tabular-nums`
-  - All fitted parameters (`284.80 ± 0.02`), $R^2$, RMSE, peak positions, Scherrer sizes, and parameter inputs MUST render in tabular monospace for vertical decimal alignment.
+**Explicitly Banned:** AI purple/violet/indigo gradients, neon outer glows, translucent glassmorphism, pure `#000000` web chrome, multi-accent rainbows outside scientific curve series.
 
 ---
 
-## 4. Layout & Workbench Anatomy
+## 3. Typography & Tabular Numeric Rules
 
-```
+- **Primary UI Sans Stack:** `'Outfit', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif`
+  - **Workbench Brand Title:** `15px`, SemiBold (`600`), `-0.01em` tracking.
+  - **Section Headers:** `12px`, SemiBold (`600`), uppercase/compact tracking, `#0F172A` or `#64748B`.
+  - **Parameter Labels & Table Cells:** `12px`, Medium (`500`), high legibility without oversized headings.
+- **Scientific Monospace Stack (`.font-mono-num`):** `'JetBrains Mono', 'Cascadia Code', Consolas, monospace` with `font-variant-numeric: tabular-nums`
+  - Mandatory for ALL numeric inputs, fitted values, `± 1σ SE` uncertainties, $R^2$, RMSE, peak tables, Scherrer sizes, and JSON provenance parameters.
+
+---
+
+## 4. Layout Principles & 3-Column Workbench Grid
+
+```text
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Top Bar (56px): ChemMat Studio | Journal Style Switch | Export Actions  │
+│ Top Bar (56px, #FFFFFF, border-b #E2E8F0)                               │
+│ Brand + "白底论文出图" | Journal Style Switch | PNG/SVG/PDF + CSV/XLSX   │
 ├───────────────┬─────────────────────────────────────────┬───────────────┤
 │ Left Rail     │ Center Analytical Stage (flex-1)        │ Right Panel   │
-│ (272px)       │                                         │ (348px)       │
-│               │ [DropZone + Auto-Detect Banner]         │               │
-│ • 6 Modules   │                                         │ Transparent   │
-│ • File Queue  │ ┌─────────────────────────────────────┐ │ Parameter     │
-│ • Load Synth  │ │ Main Interactive Figure (white bg)  │ │ Inspector     │
-│   GroundTruth │ ├─────────────────────────────────────┤ │               │
-│   Button      │ │ Synchronized Residual Plot (残差图) │ │ • Every algo  │
-│               │ └─────────────────────────────────────┘ │   param live  │
-│               │ [Fit ± SE] [Peak Table] [GT Check] [Log]│ • Empirical   │
-│               │                                         │   badges      │
+│ (272px fixed) │ (overflow-y-auto, p-3.5, gap-3)         │ (348px fixed) │
+│               │                                         │               │
+│ • DropZone    │ ┌─────────────────────────────────────┐ │ 全透明参数面板 │
+│ • 合成真值按钮 │ │ Main Figure (360px Plotly / Image)  │ │ 零黑箱·全部可改│
+│ • 自动识别条   │ ├─────────────────────────────────────┤ │               │
+│ • 6 大模块切换 │ │ Synchronized Residual Plot (175px)  │ │ • Module表单   │
+│ • 文件队列     │ └─────────────────────────────────────┘ │ • 经验默认值   │
+│               │ [拟合参数±SE][峰表/定量][真值核验][溯源]│   琥珀色徽标   │
+│               │ (Tabbed Results Drawer >= 210px)        │ • 应用计算按钮 │
 └───────────────┴─────────────────────────────────────────┴───────────────┘
 ```
 
+- **Zero Overlapping Zones:** Plots, residuals, result drawers, and parameter controls reside in non-overlapping bordered compartments.
+- **No Horizontal Scroll Traps:** Minimum desktop target `1180px`; optimal `1440×900`.
+
 ---
 
-## 5. Publication Figure Templates (Export Engine)
+## 5. Component Stylings
 
-All exported figures (`PNG 300/600 DPI`, `SVG`, `PDF`) **enforce pure white `#FFFFFF` figure & axes backgrounds**:
+- **Buttons:** Subtly rounded (`rounded-md`, `6px`), flat tactile fill (`#1D4ED8` primary white-text CTA or crisp `#FFFFFF` with `1px #E2E8F0` border for secondary exports). Fast `150ms` hover color shift.
+- **Analytical Cards:** Flat `#FFFFFF` surface with `1px solid #E2E8F0` border and subtle `8px` (`rounded-lg`) corners — elevated by border clarity rather than heavy drop shadows.
+- **Inputs & Selects:** Compact `1px #CBD5E1` stroke, crisp `#FFFFFF` interior, monospace numeric alignment, grouped logically by processing stage (Smoothing -> Baseline -> Peak/Fitting -> Empirical Constants).
+- **Empirical Default Badges (`EmpiricalBadge`):** Compact pill (`rounded`, `px-1.5 py-0.5`, `text-[10px]`, `#FEF3C7` fill, `#FDE68A` border, `#92400E` ink) placed directly beside every editable empirical assumption.
+- **Publication Export Figures (`Nature`, `Advanced Materials`, `中文核心期刊`):** Live Plotly preview mirrors the selected journal palette, tick direction (`out` vs `in`), spine box, and font stack, while Matplotlib exports strictly enforce `#FFFFFF` figure/axes background (`(255, 255, 255)` at all corners).
 
-1. **Nature Style (`nature`)**: Single-column (`89 mm` equiv aspect) / clean sans-serif (`DejaVu Sans` / `Arial`), `0.85 pt` spines (open top/right by default or clean box), outward short ticks, NPG/Okabe-Ito low-saturation palette (`#1F4E79`, `#B83B2A`, `#2E7D32`, `#7B4B94`, `#D97706`), frameless legend.
-2. **Advanced Materials Style (`adv_mater`)**: Full closed `1.25 pt` crisp black frame, inward major & minor ticks on all 4 sides, bold sans-serif axis titles, high-contrast academic palette (`#0B3C5D`, `#D92B2B`, `#1B7F5C`, `#E07A1F`).
-3. **Chinese Core Journal (`chinese_core`)**: Serif English/numbers (`Times New Roman` / `DejaVu Serif`) paired with CJK Songti/SimSun fallback (`SimSun`, `Microsoft YaHei`), standard quantity/unit slash format (e.g. `2θ / (°)`), `1.0 pt` closed box, inward ticks, distinguishable solid/dashed line styles.
+---
+
+## 6. Per-Module UI Consistency Audit Checklist
+
+Every Phase 1 module QA report (`docs/qa/01..06-*-qa-report.md`) verifies:
+1. Top `56px` toolbar, `272px` left rail, `flex-1` plot + residual stage, and `348px` right inspector preserve clean proportions at `1440×900` without overlap or clipping.
+2. Primary chart sits cleanly on `#FFFFFF` directly above its synchronized residual subplot (`残差图`).
+3. All numeric readouts, `± 1σ SE`, peak tables, and inputs align with `.font-mono-num`.
+4. All empirical defaults visibly show `经验默认值 · 可编辑` amber badges and are directly editable.
+5. Zero banned gradients, neon glows, or decorative marketing clutter appear anywhere in the module view.
