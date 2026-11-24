@@ -145,6 +145,10 @@ export const MainPlotlyChart: React.FC<MainPlotlyChartProps> = ({
             arrowhead: 0,
             ax: a.ax_offset[0],
             ay: -a.ax_offset[1],
+            bgcolor: "rgba(255,255,255,0.92)",
+            bordercolor: "#CBD5E1",
+            borderwidth: 0.8,
+            borderpad: 3,
             font: { size: 10, color: "#0F172A", family: theme.font },
             arrowcolor: "#64748B",
             arrowwidth: 1,
@@ -154,9 +158,17 @@ export const MainPlotlyChart: React.FC<MainPlotlyChartProps> = ({
       paper_bgcolor: "#FFFFFF",
       plot_bgcolor: "#FFFFFF",
       font: { family: theme.font, size: 12, color: "#0F172A" },
-      title: { text: result.title, font: { size: 13.5, color: "#0F172A" } },
-      margin: { t: 46, r: result.y2_label ? 64 : 24, b: 50, l: 64 },
-      legend: { orientation: "h", y: -0.2, x: 0, font: { size: 11 } },
+      title: { text: result.title, font: { size: 13.5, color: "#0F172A" }, y: 0.97 },
+      margin: { t: 74, r: result.y2_label ? 66 : 24, b: 52, l: 68 },
+      legend: {
+        orientation: "h",
+        x: 0,
+        y: 1.02,
+        xanchor: "left",
+        yanchor: "bottom",
+        font: { size: 10.5 },
+        bgcolor: "rgba(255,255,255,0.8)",
+      },
       annotations,
       xaxis: {
         title: { text: result.x_label },
@@ -260,6 +272,9 @@ export const ResidualPlotChart: React.FC<ResidualPlotChartProps> = ({
       });
     }
 
+    const shortResYLabel =
+      residual.y_label.length > 18 ? "Residual (Obs - Fit)" : residual.y_label;
+
     const layout: Partial<Plotly.Layout> = {
       paper_bgcolor: "#FFFFFF",
       plot_bgcolor: "#FFFFFF",
@@ -267,10 +282,11 @@ export const ResidualPlotChart: React.FC<ResidualPlotChartProps> = ({
       title: {
         text: `残差图 Residual Plot (R² = ${rSquared.toFixed(4)}, RMSE = ${residual.rmse.toPrecision(4)})`,
         font: { size: 11.5, color: "#334155" },
-        x: 0.01,
+        x: 0.08,
+        y: 0.94,
       },
-      margin: { t: 32, r: 24, b: 40, l: 64 },
-      legend: { orientation: "h", y: 1.12, x: 0.65, font: { size: 10 } },
+      margin: { t: 36, r: 24, b: 44, l: 68 },
+      legend: { orientation: "h", y: 1.02, yanchor: "bottom", x: 1, xanchor: "right", font: { size: 10 } },
       shapes: [
         {
           type: "line",
@@ -294,7 +310,7 @@ export const ResidualPlotChart: React.FC<ResidualPlotChartProps> = ({
         gridcolor: "#F1F5F9",
       },
       yaxis: {
-        title: { text: residual.y_label },
+        title: { text: shortResYLabel, font: { size: 10.5 } },
         showline: true,
         linecolor: "#0F172A",
         linewidth: 1,
