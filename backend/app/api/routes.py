@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.core.detector import detect_file_type
 from app.core.exporter import export_processed_data, render_publication_figure
-from app.modules.contact_angle import process_contact_angle
+from app.modules.contact_angle import manual_contact_angle, process_contact_angle
 from app.modules.electrochem import process_electrochem
 from app.modules.spectroscopy import process_spectroscopy
 from app.modules.xps import process_xps
@@ -173,6 +173,26 @@ async def process_module(
             return process_spectroscopy(file_pairs, **{k: v for k, v in params.items() if k in allowed}, ground_truth=gt)
 
         raise HTTPException(status_code=404, detail=f"Unknown module: {module}")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+@router.post("/contact-angle/manual")
+async def manual_contact_angle_endpoint(
+    file: UploadFile = File(...),
+    lines_json: str = Form(...),
+) -> dict[str, Any]:
+    """Manual contact-angle measurement from user-placed baseline/tangent lines."""
+    try:
+        lines = json.loads(lines_json)
+        content = await file.read()
+        return manual_contact_angle(
+            content,
+            baseline=lines["baseline"],
+            tangent_left=lines["tangent_left"],
+            tangent_right=lines["tangent_right"],
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

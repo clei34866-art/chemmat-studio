@@ -40,3 +40,25 @@ def test_contact_angle_90_60_120_accuracy():
             assert abs(tr.value - angle_true) <= 2.0, f"{model}@{angle_true}: theta_R={tr.value}"
             assert resp.ground_truth_comparison is not None
             assert resp.ground_truth_comparison["passed"] is True
+
+
+def test_manual_contact_angle_geometry():
+    """User-placed lines at known angles must come back exact."""
+    import cv2
+    import numpy as np
+
+    from app.modules.contact_angle import manual_contact_angle
+
+    img = np.full((600, 800, 3), 255, np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    res = manual_contact_angle(
+        enc.tobytes(),
+        baseline=[0, 300, 800, 300],
+        tangent_left=[300, 300, 350, 213.4],   # 60 deg interior
+        tangent_right=[500, 300, 550, 213.4],  # 120 deg interior
+    )
+    assert abs(res["theta_left_deg"] - 60.0) < 0.1
+    assert abs(res["theta_right_deg"] - 120.0) < 0.1
+    assert abs(res["theta_mean_deg"] - 90.0) < 0.1
+    assert res["annotated_image_base64"]

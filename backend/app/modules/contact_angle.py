@@ -564,3 +564,188 @@ def process_contact_angle(
         ],
         ground_truth_comparison=gt_comp,
     )
+
+
+# ---------------------------------------------------------------------------
+# Manual measurement mode
+#
+# Real sessile-drop photos often defeat the automatic pipeline (bright
+# reflection window inside the droplet, mirror reflection below the surface,
+# the dark sample-stage band merging with the droplet silhouette). The manual
+# mode lets the user place the baseline and both tangent lines by eye; this
+# function only does the exact line geometry and renders the annotated image.
+# ---------------------------------------------------------------------------
+
+
+def _line_intersection(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    p3: tuple[float, float],
+    p4: tuple[float, float],
+) -> tuple[float, float]:
+    """Intersection of line p1-p2 with line p3-p4 (image coordinates)."""
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+    den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(den) < 1e-9:
+        raise ValueError("Lines are parallel; no intersection.")
+    px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / den
+    py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / den
+    return float(px), float(py)
+
+
+def _manual_side_angle(
+    base_a: tuple[float, float],
+    base_b: tuple[float, float],
+    tan_a: tuple[float, float],
+    tan_b: tuple[float, float],
+    is_left: bool,
+) -> tuple[float, tuple[float, float]]:
+    """Interior contact angle (deg) for one side, plus the contact point.
+
+    The angle is measured through the liquid: between the baseline ray that
+    points from the contact point toward the droplet interior and the tangent
+    ray that points from the contact point upward along the droplet profile.
+    """
+    bx = base_b[0] - base_a[0]
+    by = base_b[1] - base_a[1]
+    bn = float(np.hypot(bx, by))
+    if bn < 1e-9:
+        raise ValueError("Baseline points coincide.")
+    bx, by = bx / bn, by / bn
+    if bx < 0:  # orient baseline left -> right
+        bx, by = -bx, -by
+
+    contact = _line_intersection(base_a, base_b, tan_a, tan_b)
+
+    tx = tan_b[0] - tan_a[0]
+    ty = tan_b[1] - tan_a[1]
+    tn = float(np.hypot(tx, ty))
+    if tn < 1e-9:
+        raise ValueError("Tangent points coincide.")
+    tx, ty = tx / tn, ty / tn
+    if ty > 0:  # tangent ray must point upward (droplet sits above baseline)
+        tx, ty = -tx, -ty
+    elif abs(ty) < 1e-9:  # degenerate horizontal tangent: point toward interior
+        inward = 1.0 if is_left else -1.0
+        if tx * inward < 0:
+            tx, ty = -tx, -ty
+
+    ix, iy = (bx, by) if is_left else (-bx, -by)
+    dot = float(np.clip(ix * tx + iy * ty, -1.0, 1.0))
+    theta = float(np.degrees(np.arccos(dot)))
+    return theta, contact
+
+
+def manual_contact_angle(
+    image_bytes: bytes,
+    *,
+    baseline: list[float],
+    tangent_left: list[float],
+    tangent_right: list[float],
+) -> dict[str, Any]:
+    """Compute left/right contact angles from user-placed lines.
+
+    Each line is [x1, y1, x2, y2] in original image pixel coordinates.
+    Returns the angles and an annotated PNG (base64) in the same visual
+    style as the automatic mode.
+    """
+    for name, line in (
+        ("baseline", baseline),
+        ("tangent_left", tangent_left),
+        ("tangent_right", tangent_right),
+    ):
+        if len(line) != 4:
+            raise ValueError(f"{name} must be [x1, y1, x2, y2].")
+
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None:
+        raise ValueError("Could not decode image.")
+    h, w = bgr.shape[:2]
+
+    base_a = (float(baseline[0]), float(baseline[1]))
+    base_b = (float(baseline[2]), float(baseline[3]))
+    tl_a = (float(tangent_left[0]), float(tangent_left[1]))
+    tl_b = (float(tangent_left[2]), float(tangent_left[3]))
+    tr_a = (float(tangent_right[0]), float(tangent_right[1]))
+    tr_b = (float(tangent_right[2]), float(tangent_right[3]))
+
+    theta_l, contact_l = _manual_side_angle(base_a, base_b, tl_a, tl_b, True)
+    theta_r, contact_r = _manual_side_angle(base_a, base_b, tr_a, tr_b, False)
+    theta_mean = 0.5 * (theta_l + theta_r)
+
+    # --- Annotated rendering (same palette as automatic mode) ---
+    vis = bgr.copy()
+
+    def _extended(p: tuple[float, float], q: tuple[float, float], frac: float = 0.35):
+        """Segment p-q extended by frac of its length on both ends, clipped."""
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        a = (p[0] - frac * dx, p[1] - frac * dy)
+        b = (q[0] + frac * dx, q[1] + frac * dy)
+        return a, b
+
+    def _draw_line(p: tuple[float, float], q: tuple[float, float], color, thickness=2):
+        cv2.line(
+            vis,
+            (int(round(p[0])), int(round(p[1]))),
+            (int(round(q[0])), int(round(q[1]))),
+            color,
+            thickness,
+            cv2.LINE_AA,
+        )
+
+    # Baseline across the full width along its own slope (blue, BGR)
+    if abs(base_b[0] - base_a[0]) > 1e-6:
+        slope = (base_b[1] - base_a[1]) / (base_b[0] - base_a[0])
+        y_at = lambda x: base_a[1] + slope * (x - base_a[0])
+        _draw_line((0.0, y_at(0.0)), (float(w - 1), y_at(float(w - 1))), (220, 90, 20))
+    else:
+        _draw_line(base_a, base_b, (220, 90, 20))
+
+    # Tangents (red, BGR), extended a little past the handles
+    for a, b in ((tl_a, tl_b), (tr_a, tr_b)):
+        ea, eb = _extended(a, b)
+        _draw_line(ea, eb, (30, 30, 230))
+
+    # Contact points (yellow dots, BGR)
+    for c in (contact_l, contact_r):
+        cv2.circle(vis, (int(round(c[0])), int(round(c[1]))), 6, (0, 200, 255), -1, cv2.LINE_AA)
+
+    # Readout box
+    lines = [
+        f"Theta_L: {theta_l:.2f} deg (manual)",
+        f"Theta_R: {theta_r:.2f} deg (manual)",
+        f"Mean:    {theta_mean:.2f} deg",
+    ]
+    cv2.rectangle(vis, (14, 14), (330, 92), (255, 255, 255), -1)
+    cv2.rectangle(vis, (14, 14), (330, 92), (180, 190, 205), 1)
+    for i, t in enumerate(lines):
+        cv2.putText(
+            vis,
+            t,
+            (24, 36 + 23 * i),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (15, 23, 42) if i < 2 else (29, 78, 216),
+            1 if i < 2 else 2,
+            cv2.LINE_AA,
+        )
+
+    rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+    buf = io.BytesIO()
+    Image.fromarray(rgb).save(buf, format="PNG")
+    annotated_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    return {
+        "theta_left_deg": round(theta_l, 3),
+        "theta_right_deg": round(theta_r, 3),
+        "theta_mean_deg": round(theta_mean, 3),
+        "contact_left": [round(contact_l[0], 2), round(contact_l[1], 2)],
+        "contact_right": [round(contact_r[0], 2), round(contact_r[1], 2)],
+        "image_width": w,
+        "image_height": h,
+        "annotated_image_base64": annotated_b64,
+    }

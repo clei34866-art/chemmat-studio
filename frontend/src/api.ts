@@ -116,3 +116,29 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+export interface ManualAngleResult {
+  theta_left_deg: number;
+  theta_right_deg: number;
+  theta_mean_deg: number;
+  contact_left: [number, number];
+  contact_right: [number, number];
+  image_width: number;
+  image_height: number;
+  annotated_image_base64: string;
+}
+
+export async function measureManualContactAngle(
+  file: File,
+  lines: { baseline: number[]; tangent_left: number[]; tangent_right: number[] }
+): Promise<ManualAngleResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("lines_json", JSON.stringify(lines));
+  const res = await fetch("/api/contact-angle/manual", { method: "POST", body: fd });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "手动测角失败");
+  }
+  return res.json();
+}

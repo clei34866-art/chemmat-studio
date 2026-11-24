@@ -19,6 +19,7 @@ import {
 } from "./api";
 import { JournalToolbar } from "./components/JournalToolbar";
 import { ParameterInspector } from "./components/ParameterInspector";
+import { ManualContactAngle } from "./components/ManualContactAngle";
 import { PlotWorkspace } from "./components/PlotWorkspace";
 import type {
   DetectResponse,
@@ -322,6 +323,7 @@ export function App() {
             journalStyle={journalStyle}
             loading={loading}
           />
+          {activeModule === "contact_angle" && <ManualContactAngle />}
         </main>
 
         {/* Right Transparent Parameter Inspector */}
