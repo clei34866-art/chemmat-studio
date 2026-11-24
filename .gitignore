@@ -1,0 +1,22 @@
+# Virtual environments & Python artifacts
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Frontend build & dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Git worktrees & temp files
+.worktrees/
+worktrees/
+*.tmp
+*.log
+.DS_Store
+Thumbs.db

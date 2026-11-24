@@ -1,0 +1,28 @@
+[project]
+name = "chemmat-studio-backend"
+version = "0.1.0"
+description = "ChemMat Studio local scientific computing & publication figure engine for Chemistry and Materials Science."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    "numpy>=2.1.0",
+    "scipy>=1.14.0",
+    "pandas>=2.2.0",
+    "matplotlib>=3.9.0",
+    "opencv-python-headless>=4.10.0",
+    "pillow>=11.0.0",
+    "openpyxl>=3.1.5",
+    "pydantic>=2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
