@@ -1,363 +1,261 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ChemMat Studio — 一站式化材实验数据处理与论文出图工作台</title>
-  <style>
-    :root {
-      --bg: #F8FAFC;
-      --surface: #FFFFFF;
-      --subtle: #F1F5F9;
-      --ink: #0F172A;
-      --muted: #475569;
-      --pewter: #64748B;
-      --border: #E2E8F0;
-      --primary: #1D4ED8;
-      --primary-hover: #1E40AF;
-      --ice: #EFF6FF;
-      --amber-bg: #FEF3C7;
-      --amber-ink: #92400E;
-      --amber-border: #FDE68A;
-      --pass-bg: #ECFDF5;
-      --pass-ink: #047857;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Outfit', 'Noto Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--ink);
-      line-height: 1.6;
-    }
-    .mono {
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-variant-numeric: tabular-nums;
-    }
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 20;
-    }
-    .nav {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 16px;
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-      background: var(--subtle);
-      color: var(--muted);
-    }
-    .pill-amber {
-      background: var(--amber-bg);
-      color: var(--amber-ink);
-      border-color: var(--amber-border);
-    }
-    .pill-pass {
-      background: var(--pass-bg);
-      color: var(--pass-ink);
-      border-color: #A7F3D0;
-    }
-    .btn {
-      display: inline-block;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      text-decoration: none;
-      border: 1px solid var(--border);
-      color: var(--ink);
-      background: var(--surface);
-    }
-    .btn-primary {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #FFFFFF;
-    }
-    .btn-primary:hover { background: var(--primary-hover); }
-    main {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 28px 24px 56px;
-    }
-    .notice {
-      background: var(--amber-bg);
-      border: 1px solid var(--amber-border);
-      color: var(--amber-ink);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 13px;
-      margin-bottom: 24px;
-    }
-    .hero {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 28px;
-      margin-bottom: 24px;
-    }
-    .hero h1 {
-      margin: 0 0 10px;
-      font-size: 26px;
-      line-height: 1.3;
-    }
-    .hero p {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-size: 15px;
-      max-width: 860px;
-    }
-    .codebox {
-      background: var(--subtle);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 16px;
-      overflow-x: auto;
-      font-size: 13px;
-      color: var(--ink);
-    }
-    h2 {
-      font-size: 18px;
-      margin: 28px 0 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-    }
-    .card h3 {
-      margin: 0 0 6px;
-      font-size: 15px;
-      color: var(--ink);
-    }
-    .card p {
-      margin: 0;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .shots {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 18px;
-    }
-    .shot-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .shot-card img {
-      width: 100%;
-      display: block;
-      border-bottom: 1px solid var(--border);
-      background: #FFFFFF;
-    }
-    .shot-meta {
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .shot-title {
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .shot-err {
-      font-size: 12px;
-      color: var(--pewter);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      font-size: 13px;
-    }
-    th, td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-    }
-    th {
-      background: var(--subtle);
-      font-weight: 600;
-      color: var(--muted);
-    }
-    footer {
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-      padding: 18px 24px;
-      font-size: 12px;
-      color: var(--pewter);
-      text-align: center;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChemMat Studio — 化材实验数据处理与论文出图工作台</title>
+<meta name="description" content="一站式化材实验数据处理与纯白底论文出图工作台：万能 XY / XRD / XPS / 接触角 / 电化学 / 光谱，拟合必带误差与残差，零虚构标准数据。">
+<style>
+  :root{
+    --bg:#06090c; --bg2:#0a1216; --panel:rgba(16,34,38,.72); --panel2:rgba(10,22,26,.85);
+    --line:rgba(45,212,191,.16); --line2:rgba(148,196,190,.14);
+    --txt:#e8f4f1; --muted:#93aaa6; --dim:#6d8883;
+    --acc:#2dd4bf; --acc2:#5eead4; --green:#4ade80; --amber:#fbbf24;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:radial-gradient(1200px 600px at 80% -10%, rgba(45,212,191,.10), transparent 60%),
+               radial-gradient(900px 500px at -10% 20%, rgba(45,212,191,.06), transparent 55%),
+               linear-gradient(180deg,var(--bg2),var(--bg));
+       color:var(--txt); font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+       line-height:1.65; min-height:100vh;}
+  a{color:var(--acc2); text-decoration:none;}
+  .wrap{max-width:1060px; margin:0 auto; padding:0 16px 56px;}
+  /* 顶栏 */
+  header{position:sticky; top:0; z-index:20; backdrop-filter:blur(10px);
+    background:rgba(6,12,14,.78); border-bottom:1px solid var(--line2);}
+  .bar{max-width:1060px; margin:0 auto; padding:12px 16px; display:flex; align-items:center; gap:12px;}
+  .logo{width:38px; height:38px; border-radius:11px; border:1.5px solid var(--acc);
+    display:flex; align-items:center; justify-content:center; color:var(--acc);
+    font-weight:800; font-size:19px; background:rgba(45,212,191,.08); position:relative; flex:none;}
+  .logo::after{content:""; position:absolute; right:5px; bottom:5px; width:7px; height:7px;
+    border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);}
+  .bar .name{font-size:17px; font-weight:700; letter-spacing:.4px;}
+  .bar .sub{font-size:11.5px; color:var(--dim);}
+  .bar .sp{flex:1;}
+  .ghbtn{border:1px solid var(--line); color:var(--txt); padding:7px 14px; border-radius:999px;
+    font-size:13px; background:rgba(45,212,191,.06); white-space:nowrap; flex:none;}
+  .ghbtn:hover{background:rgba(45,212,191,.14);}
+  /* Hero */
+  .hero{margin-top:22px; background:var(--panel); border:1px solid var(--line);
+    border-radius:24px; padding:34px 30px 28px; box-shadow:0 24px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(94,234,212,.08);}
+  .kicker{color:var(--acc); font-size:13.5px; font-weight:700; letter-spacing:2.2px; display:flex; gap:9px; align-items:center;}
+  .kicker::before{content:""; width:8px; height:8px; border-radius:50%; background:var(--acc); box-shadow:0 0 10px var(--acc);}
+  h1{font-size:clamp(27px,5.2vw,42px); line-height:1.28; margin:16px 0 14px; font-weight:800; letter-spacing:.5px;}
+  h1 .hl{color:var(--acc2);}
+  .hero p{color:var(--muted); font-size:15.5px; max-width:46em;}
+  .hero p b{color:var(--txt);}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:24px;}
+  .stat{background:var(--panel2); border:1px solid var(--line2); border-radius:14px; padding:14px 16px;}
+  .stat .k{font-size:12.5px; color:var(--dim); letter-spacing:1px;}
+  .stat .v{font-size:23px; font-weight:800; color:var(--acc2); margin-top:3px; font-variant-numeric:tabular-nums;}
+  .stat .v small{font-size:12.5px; color:var(--muted); font-weight:600;}
+  .cta{display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;}
+  .btn{padding:11px 22px; border-radius:12px; font-size:14.5px; font-weight:700; border:1px solid var(--line);}
+  .btn.primary{background:linear-gradient(135deg,#14b8a6,#0d9488); color:#ecfdf9; border-color:transparent;
+    box-shadow:0 8px 24px rgba(20,184,166,.35);}
+  .btn.ghost{color:var(--txt); background:rgba(45,212,191,.05);}
+  /* 状态横幅 */
+  .banner{margin-top:16px; border:1px solid rgba(74,222,128,.35); background:rgba(22,60,40,.35);
+    color:#bbf7d0; border-radius:14px; padding:13px 18px; font-size:14px; display:flex; gap:10px; align-items:flex-start;}
+  .banner .ok{flex:none; width:21px; height:21px; border-radius:50%; background:var(--green); color:#052e12;
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; margin-top:1px;}
+  /* 分区 */
+  section{margin-top:38px;}
+  .sec-head{display:flex; align-items:baseline; gap:12px; margin-bottom:16px;}
+  .sec-head .no{color:var(--acc); font-weight:800; letter-spacing:2px; font-size:13px;}
+  .sec-head h2{font-size:22px; font-weight:800;}
+  .sec-head .note{color:var(--dim); font-size:13px;}
+  /* 模块卡 */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px;}
+  .card{background:var(--panel); border:1px solid var(--line2); border-radius:var(--radius); padding:20px 20px 16px; position:relative;}
+  .card:hover{border-color:var(--line);}
+  .card .top{display:flex; align-items:center; gap:10px;}
+  .card .num{font-size:12px; font-weight:800; color:#06231f; background:var(--acc); border-radius:7px; padding:2.5px 8px; letter-spacing:1px;}
+  .card h3{font-size:17.5px; font-weight:800;}
+  .pass{margin-left:auto; font-size:11px; font-weight:800; letter-spacing:1.2px; color:var(--green);
+    border:1px solid rgba(74,222,128,.45); padding:2.5px 9px; border-radius:999px; background:rgba(74,222,128,.08);}
+  .card .methods{color:var(--muted); font-size:13.5px; margin-top:9px; min-height:3.2em;}
+  .card .err{margin-top:8px; border-top:1px dashed var(--line2); padding-top:11px; display:flex; align-items:baseline; gap:8px;}
+  .card .err .big{font-size:21px; font-weight:800; color:var(--acc2); font-variant-numeric:tabular-nums;}
+  .card .err .lab{font-size:12px; color:var(--dim);}
+  .card .std{font-size:12.5px; color:var(--dim); margin-top:3px;}
+  /* 红线 */
+  .rules{display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:14px;}
+  .rule{background:var(--panel2); border:1px solid var(--line2); border-left:3px solid var(--acc);
+    border-radius:12px; padding:16px 18px;}
+  .rule h4{font-size:15.5px; margin-bottom:5px;}
+  .rule p{font-size:13.5px; color:var(--muted);}
+  /* 截图 */
+  .tabs{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:14px;}
+  .tab{border:1px solid var(--line2); background:var(--panel2); color:var(--muted); border-radius:999px;
+    padding:8px 16px; font-size:13.5px; cursor:pointer; font-family:inherit;}
+  .tab.on{color:#06231f; background:var(--acc); border-color:transparent; font-weight:800;}
+  .shot{background:var(--panel); border:1px solid var(--line2); border-radius:var(--radius); padding:14px;}
+  .shot img{width:100%; display:block; border-radius:10px; border:1px solid rgba(255,255,255,.06);}
+  .shot figcaption{color:var(--muted); font-size:13.5px; padding:11px 4px 2px;}
+  .shot figcaption b{color:var(--txt);}
+  /* 快速开始 */
+  .code{background:#04110f; border:1px solid var(--line2); border-radius:14px; padding:18px 20px;
+    font-family:Consolas,"Courier New",monospace; font-size:13.5px; color:#a7f3ea; overflow-x:auto; white-space:pre; line-height:1.8;}
+  .code .c{color:#5b7a75;}
+  .honest{margin-top:14px; font-size:13.5px; color:var(--muted); background:rgba(251,191,36,.06);
+    border:1px solid rgba(251,191,36,.25); border-radius:12px; padding:13px 17px;}
+  .honest b{color:var(--amber);}
+  footer{margin-top:44px; border-top:1px solid var(--line2); padding-top:20px; color:var(--dim);
+    font-size:13px; display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+  footer .sp{flex:1;}
+</style>
 </head>
 <body>
-  <header>
-    <div class="nav">
-      <div class="brand">
-        <span>ChemMat Studio</span>
-        <span class="pill">纯白底论文出图</span>
-        <span class="pill pill-pass">Phase 1 · 6/6 模块验证通过</span>
+<header>
+  <div class="bar">
+    <div class="logo">C</div>
+    <div>
+      <div class="name">ChemMat Studio</div>
+      <div class="sub">化材实验数据处理工作台 · 开源项目</div>
+    </div>
+    <div class="sp"></div>
+    <a class="ghbtn" href="https://github.com/clei34866-art/chemmat-studio" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="kicker">开源科研工具 · FASTAPI + REACT 科学计算工作台</div>
+    <h1>化材实验数据处理与<br><span class="hl">纯白底论文出图</span>工作台</h1>
+    <p>面向化学与材料科学实验数据：原始文件自动判别、<b>全参数透明可控</b>、拟合必带 <b>±1σ 误差与残差图</b>，
+       一键切换 Nature / Advanced Materials / 中文核心期刊三种纯白底模板出图。不内置任何编造的标准数据——这是这个工具的第一红线。</p>
+    <div class="stats">
+      <div class="stat"><div class="k">分析模块</div><div class="v">6 <small>大模块</small></div></div>
+      <div class="stat"><div class="k">自动化回归测试</div><div class="v">15 <small>项全过</small></div></div>
+      <div class="stat"><div class="k">XRD 峰位实测误差</div><div class="v">0.0001°</div></div>
+      <div class="stat"><div class="k">出图导出</div><div class="v">300·600 <small>DPI</small></div></div>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="#modules">查看六大模块</a>
+      <a class="btn ghost" href="#quickstart">快速开始</a>
+    </div>
+  </div>
+
+  <div class="banner">
+    <div class="ok">✓</div>
+    <div>[自检状态] 六大模块合成真值回归全部 PASS · 每次拟合同步输出误差与残差 · 零虚构标准峰位与灵敏度因子库</div>
+  </div>
+
+  <!-- 模块 -->
+  <section id="modules">
+    <div class="sec-head"><span class="no">TAB 01</span><h2>六大模块与实测精度</h2><span class="note">误差均为合成真值自检实测，非宣传数字</span></div>
+    <div class="grid">
+      <div class="card">
+        <div class="top"><span class="num">01</span><h3>万能 XY</h3><span class="pass">PASS</span></div>
+        <p class="methods">文件类型自动识别、多文件归一化与垂直偏移叠加、区间可选线性拟合。</p>
+        <div class="err"><span class="big">0.0069%</span><span class="lab">斜率误差（截距 0.1558%）</span></div>
+        <div class="std">验收标准 &lt; 2.0%</div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <a class="btn" href="https://github.com/clei34866-art/chemmat-studio" target="_blank" rel="noopener">GitHub 源码仓库</a>
-        <a class="btn" href="#quickstart">本地启动命令</a>
-        <a class="btn btn-primary" href="#screenshots">实测运行截图</a>
+      <div class="card">
+        <div class="top"><span class="num">02</span><h3>XRD 衍射</h3><span class="pass">PASS</span></div>
+        <p class="methods">Savitzky-Golay 平滑、AsLS / SNIP / 多项式扣背底、Pseudo-Voigt 多峰拟合与 Scherrer 晶粒尺寸、瀑布图。</p>
+        <div class="err"><span class="big">0.0001°</span><span class="lab">峰位误差（晶粒尺寸 0.338%）</span></div>
+        <div class="std">验收标准 峰位 &lt; 0.05° · 尺寸 &lt; 5.0%</div>
+      </div>
+      <div class="card">
+        <div class="top"><span class="num">03</span><h3>XPS 能谱</h3><span class="pass">PASS</span></div>
+        <p class="methods">自动 / 手动荷电校正、Shirley 迭代背底、Pseudo-Voigt 多峰分峰、RSF 可编辑的原子比定量。</p>
+        <div class="err"><span class="big">≤ 0.004 eV</span><span class="lab">峰位误差（原子比 0.00%）</span></div>
+        <div class="std">验收标准 校正 &lt; 0.05 eV · 峰位 &lt; 0.08 eV</div>
+      </div>
+      <div class="card">
+        <div class="top"><span class="num">04</span><h3>接触角</h3><span class="pass">PASS</span></div>
+        <p class="methods">Otsu / 手动阈值、高斯滤波、亚像素基线检测、椭圆 / 圆弧 / 多项式切线拟合、原图叠加标注。</p>
+        <div class="err"><span class="big">0.14° / 0.22°</span><span class="lab">90° 合成图左 / 右误差</span></div>
+        <div class="std">验收标准 ≤ 2.0°（60°–120° 全程 ≤ 0.22°）</div>
+      </div>
+      <div class="card">
+        <div class="top"><span class="num">05</span><h3>电化学</h3><span class="pass">PASS</span></div>
+        <p class="methods">CV 氧化还原寻峰积分、GCD 分段比电容、1:1 Nyquist + 多种等效电路 CNLS 拟合、长循环双 Y 轴。</p>
+        <div class="err"><span class="big">0.64%</span><span class="lab">EIS 元件最大误差（GCD 0.62%）</span></div>
+        <div class="std">验收标准 EIS &lt; 3.0% · GCD &lt; 1.0%</div>
+      </div>
+      <div class="card">
+        <div class="top"><span class="num">06</span><h3>光谱分析</h3><span class="pass">PASS</span></div>
+        <p class="methods">UV-Vis / FTIR（%T ↔ A、波数反向）/ Raman 扣背底寻峰、UV-Vis Tauc 外推带隙。</p>
+        <div class="err"><span class="big">0.0082 eV</span><span class="lab">Tauc 带隙误差</span></div>
+        <div class="std">验收标准 带隙 &lt; 0.05 eV · Raman &lt; 2.0 cm⁻¹</div>
       </div>
     </div>
-  </header>
+  </section>
 
-  <main>
-    <div class="notice">
-      <strong>架构诚实说明：</strong>ChemMat Studio 的科学计算引擎基于本地 Python（FastAPI + NumPy / SciPy / OpenCV / Matplotlib），无法在纯静态 GitHub Pages 上运行后端计算。本页面仅作为项目功能介绍与浏览器实测图集展示页，请在克隆仓库后按下方说明在本地启动完整工作台。
+  <!-- 红线 -->
+  <section id="rules">
+    <div class="sec-head"><span class="no">TAB 02</span><h2>设计红线</h2><span class="note">写进代码仓库的五条原则</span></div>
+    <div class="rules">
+      <div class="rule"><h4>零虚构标准数据</h4><p>不内置编造的 XPS 灵敏度因子库、XRD 标准峰位 / PDF 卡片或物性常数；所有默认值（如 C 1s 284.8 eV、Scherrer K = 0.89）显式标注「经验默认值 · 可编辑」。</p></div>
+      <div class="rule"><h4>拟合必带误差与残差</h4><p>一切线性 / 非线性 / 复数阻抗拟合都由协方差矩阵输出 1σ 标准误差，主图下方同步渲染零参考线残差图，R²、RMSE 同步显示。</p></div>
+      <div class="rule"><h4>全参数透明，零黑箱</h4><p>平滑、扣背底、寻峰、图像分割与基线参数全部外露可改，支持完整溯源日志导出——每个数字都能追到来源。</p></div>
+      <div class="rule"><h4>合成真值自检</h4><p>六大模块各配已知真值的合成数据生成器，全量自动化回归验证并实测误差，精度不达标不算完成。</p></div>
+      <div class="rule"><h4>纯白底多模板出图</h4><p>Nature、Advanced Materials、中文核心期刊三套模板一键切换；导出 300 / 600 DPI PNG（四角严格纯白）、SVG、PDF 及带日志的数据文件。</p></div>
     </div>
+  </section>
 
-    <section class="hero">
-      <h1>一站式化材实验数据处理与论文级出图工作台</h1>
-      <p>
-        面向化学与材料科学实验数据处理：支持原始文件类型自动判别、全参数透明可控、协方差误差（<span class="mono">±1σ SE</span>）与联动残差图同步输出，一键切换 <strong>Nature</strong> / <strong>Advanced Materials</strong> / <strong>中文核心期刊</strong> 纯白底（<span class="mono">#FFFFFF</span>）导出。
-      </p>
-      <div class="grid-3" style="margin-bottom:18px;">
-        <div class="card">
-          <h3>零虚构标准数据</h3>
-          <p>不内置任何编造标准峰位（PDF 卡片）或灵敏度因子库，初始默认值统一标注 <span class="pill pill-amber">经验默认值 · 可编辑</span>。</p>
-        </div>
-        <div class="card">
-          <h3>拟合必带误差与残差</h3>
-          <p>每次线性、Pseudo-Voigt、接触角轮廓、EIS CNLS 与 Tauc 线性外推均同步给出 <span class="mono">±1σ SE</span> 与零基准残差图。</p>
-        </div>
-        <div class="card">
-          <h3>纯白底论文出图导出</h3>
-          <p>支持 300 / 600 DPI PNG（严格纯白四角 <span class="mono">(255,255,255)</span>）、SVG 矢量、PDF 与 CSV / Excel 含日志导出。</p>
-        </div>
-      </div>
+  <!-- 截图 -->
+  <section id="shots">
+    <div class="sec-head"><span class="no">TAB 03</span><h2>实操截图</h2><span class="note">本地工作台真实运行界面</span></div>
+    <div class="tabs" id="tabs"></div>
+    <figure class="shot">
+      <img id="shotImg" src="screenshots/01-xy.png" alt="模块实操截图">
+      <figcaption id="shotCap"></figcaption>
+    </figure>
+  </section>
 
-      <div id="quickstart" class="codebox mono">
-        git clone https://github.com/clei34866-art/chemmat-studio.git &amp;&amp; cd chemmat-studio<br />
-        .\start.ps1 &nbsp;# Windows 一键构建并启动至 http://127.0.0.1:8000
-      </div>
-    </section>
+  <!-- 快速开始 -->
+  <section id="quickstart">
+    <div class="sec-head"><span class="no">TAB 04</span><h2>快速开始</h2><span class="note">克隆到本地，一条命令启动</span></div>
+    <div class="code"><span class="c"># 克隆仓库</span>
+git clone https://github.com/clei34866-art/chemmat-studio.git
+cd chemmat-studio
 
-    <h2>六大模块合成真值实测误差汇总</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>实验模块</th>
-          <th>核心方法</th>
-          <th>合成真值实测精度</th>
-          <th>验收标准</th>
-          <th>状态</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>1. 万能 XY</strong></td>
-          <td>多文件归一化 / 偏移叠加、区间线性拟合</td>
-          <td class="mono">斜率误差 0.0069% · 截距 0.1558%</td>
-          <td class="mono">&lt; 2.0%</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-        <tr>
-          <td><strong>2. XRD 衍射</strong></td>
-          <td>SG 平滑、AsLS/SNIP 扣背底、Pseudo-Voigt + Scherrer</td>
-          <td class="mono">峰位误差 0.0001° · 晶粒尺寸 0.338%</td>
-          <td class="mono">&lt; 0.05° / &lt; 5.0%</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-        <tr>
-          <td><strong>3. XPS 能谱</strong></td>
-          <td>荷电校正、Shirley 迭代背底、多峰拟合、可编辑 RSF</td>
-          <td class="mono">校正 0.000 eV · 峰位 ≤ 0.004 eV · 原子比 0.00%</td>
-          <td class="mono">&lt; 0.05 eV / &lt; 2.0%</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-        <tr>
-          <td><strong>4. 接触角</strong></td>
-          <td>二值化 / 高斯滤波、亚像素基线、椭圆/圆弧/切线拟合</td>
-          <td class="mono">90° 合成图 L 0.14° / R 0.22° (R² = 1.0000)</td>
-          <td class="mono">≤ 2.0°</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-        <tr>
-          <td><strong>5. 电化学</strong></td>
-          <td>CV 积分、GCD 比电容、1:1 Nyquist + CNLS、长循环</td>
-          <td class="mono">EIS 最大 0.6438% · GCD 0.6208%</td>
-          <td class="mono">&lt; 3.0% / &lt; 1.0%</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-        <tr>
-          <td><strong>6. 光谱分析</strong></td>
-          <td>UV-Vis Tauc 带隙外推、FTIR（%T↔A 反向波数）、Raman</td>
-          <td class="mono">Tauc 0.0082 eV · Raman 0.05 cm⁻¹ · FTIR 0.06 cm⁻¹</td>
-          <td class="mono">&lt; 0.05 eV / &lt; 2.0 cm⁻¹</td>
-          <td><span class="pill pill-pass">PASS</span></td>
-        </tr>
-      </tbody>
-    </table>
+<span class="c"># Windows 一键启动（自动构建前端 + 同步后端环境）</span>
+.\start.ps1
 
-    <h2 id="screenshots">浏览器实操运行截图</h2>
-    <div class="shots">
-      <div class="shot-card">
-        <img src="screenshots/01-xy.png" alt="万能 XY 模块截图" />
-        <div class="shot-meta"><span class="shot-title">1. 万能 XY 线性拟合与残差</span><span class="shot-err mono">err 0.0069%</span></div>
-      </div>
-      <div class="shot-card">
-        <img src="screenshots/02-xrd.png" alt="XRD 模块截图" />
-        <div class="shot-meta"><span class="shot-title">2. XRD 扣背底与 Scherrer</span><span class="shot-err mono">err 0.338%</span></div>
-      </div>
-      <div class="shot-card">
-        <img src="screenshots/03-xps.png" alt="XPS 模块截图" />
-        <div class="shot-meta"><span class="shot-title">3. XPS 荷电校正与 Shirley 分峰</span><span class="shot-err mono">err ≤ 0.004 eV</span></div>
-      </div>
-      <div class="shot-card">
-        <img src="screenshots/04-contact-angle.png" alt="接触角模块截图" />
-        <div class="shot-meta"><span class="shot-title">4. 接触角轮廓拟合与标注</span><span class="shot-err mono">90° err ≤ 0.22°</span></div>
-      </div>
-      <div class="shot-card">
-        <img src="screenshots/05-electrochem.png" alt="电化学模块截图" />
-        <div class="shot-meta"><span class="shot-title">5. 电化学 1:1 Nyquist CNLS</span><span class="shot-err mono">EIS err 0.64%</span></div>
-      </div>
-      <div class="shot-card">
-        <img src="screenshots/06-spectroscopy.png" alt="光谱分析模块截图" />
-        <div class="shot-meta"><span class="shot-title">6. UV-Vis Tauc 带隙外推</span><span class="shot-err mono">Eg err 0.0082 eV</span></div>
-      </div>
-    </div>
-  </main>
+<span class="c"># 浏览器打开 http://127.0.0.1:8000 即可使用全部模块</span></div>
+    <div class="honest"><b>架构诚实说明：</b>科学计算引擎是本地 Python 后端（FastAPI + NumPy / SciPy / OpenCV），无法在纯静态的 GitHub Pages 上运行。本页是项目展示与实测图集，完整工作台请按上方说明在本地启动。</div>
+  </section>
 
   <footer>
-    ChemMat Studio · MIT License · Pure Static Showcase for GitHub Pages (Run Python FastAPI Locally)
+    <span>ChemMat Studio · 化材实验数据处理工作台</span>
+    <span class="sp"></span>
+    <a href="https://github.com/clei34866-art/chemmat-studio" target="_blank" rel="noopener">github.com/clei34866-art/chemmat-studio</a>
+    <span>MIT License</span>
   </footer>
+</div>
+
+<script>
+  var SHOTS = [
+    {f:"screenshots/01-xy.png",        t:"万能 XY",        c:"线性拟合与残差，斜率误差 0.0069%"},
+    {f:"screenshots/02-xrd.png",       t:"XRD 衍射",       c:"扣背底与 Scherrer 晶粒尺寸，误差 0.338%"},
+    {f:"screenshots/03-xps.png",       t:"XPS 能谱",       c:"荷电校正与 Shirley 分峰，峰位误差 ≤ 0.004 eV"},
+    {f:"screenshots/04-contact-angle.png", t:"接触角",     c:"轮廓拟合与原图叠加标注，90° 误差 ≤ 0.22°"},
+    {f:"screenshots/05-electrochem.png",   t:"电化学",     c:"1:1 Nyquist + CNLS 拟合，EIS 误差 0.64%"},
+    {f:"screenshots/06-spectroscopy.png",  t:"光谱分析",   c:"UV-Vis Tauc 带隙外推，误差 0.0082 eV"}
+  ];
+  var tabs = document.getElementById('tabs'), img = document.getElementById('shotImg'), cap = document.getElementById('shotCap');
+  SHOTS.forEach(function(s, i){
+    var b = document.createElement('button');
+    b.className = 'tab' + (i === 0 ? ' on' : '');
+    b.textContent = s.t;
+    b.onclick = function(){
+      tabs.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      img.src = s.f;
+      cap.innerHTML = '<b>' + s.t + '</b> — ' + s.c;
+    };
+    tabs.appendChild(b);
+  });
+  cap.innerHTML = '<b>' + SHOTS[0].t + '</b> — ' + SHOTS[0].c;
+</script>
 </body>
 </html>
